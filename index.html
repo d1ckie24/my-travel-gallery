@@ -376,32 +376,63 @@
 
                 lightbox.init();
 
-                // 3. 🎵 音乐播放器控制逻辑
+                // 3. 🎵 智能背景音乐控制（兼顾自动播放与浏览器策略拦截）
                 const bgMusic = document.getElementById('bgMusic');
                 const musicToggleBtn = document.getElementById('musicToggleBtn');
                 const musicBtnIcon = document.getElementById('musicBtnIcon');
                 const discWrapper = document.getElementById('discWrapper');
                 let isPlaying = false;
 
-                function toggleMusic() {
-                    if (isPlaying) {
-                        bgMusic.pause();
-                        musicBtnIcon.textContent = '▶';
-                        discWrapper.classList.remove('playing');
-                    } else {
-                        bgMusic.play().then(() => {
-                            musicBtnIcon.textContent = '❚❚';
-                            discWrapper.classList.add('playing');
-                        }).catch(err => {
-                            console.warn('播放失败，请检查同目录下是否有 music.mp3 文件:', err);
-                        });
-                    }
-                    isPlaying = !isPlaying;
+                function playMusic() {
+                    bgMusic.play().then(() => {
+                        musicBtnIcon.textContent = '❚❚';
+                        discWrapper.classList.add('playing');
+                        isPlaying = true;
+                    }).catch(err => {
+                        console.log('直接自动播放被拦截，等待用户第一次点击页面激活...');
+                        isPlaying = false;
+                    });
                 }
 
+                function pauseMusic() {
+                    bgMusic.pause();
+                    musicBtnIcon.textContent = '▶';
+                    discWrapper.classList.remove('playing');
+                    isPlaying = false;
+                }
+
+                function toggleMusic(e) {
+                    if (e) e.stopPropagation();
+                    if (isPlaying) {
+                        pauseMusic();
+                    } else {
+                        playMusic();
+                    }
+                }
+
+                // ① 打开页面时尝试直接播放
+                playMusic();
+
+                // ② 若直接播放被限制，监听全页面的第一次点击/触摸，触发播放
+                const handleFirstInteraction = () => {
+                    if (!isPlaying) {
+                        playMusic();
+                    }
+                    // 触发一次后自动移除监听器，不影响后续正常操作
+                    document.removeEventListener('click', handleFirstInteraction);
+                    document.removeEventListener('touchstart', handleFirstInteraction);
+                };
+
+                document.addEventListener('click', handleFirstInteraction, { once: true });
+                document.addEventListener('touchstart', handleFirstInteraction, { once: true });
+
+                // 按钮手动切换控制
                 musicToggleBtn.addEventListener('click', toggleMusic);
                 discWrapper.addEventListener('click', toggleMusic);
             });
     </script>
 </body>
 </html>
+```eot
+
+你只需将这段新的 `index.html` 更新到 GitHub 仓库中，刷新网页即可生效！
