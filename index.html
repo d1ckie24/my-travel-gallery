@@ -295,14 +295,10 @@
                     groups[groupKey].push(photo);
                 });
 
-                // 📅 智能日期与名称排序（支持带数字的文本对比，如 7月9日 与 7月10日）
+                // 📅 强化版的纯文本/数字混合倒序排列（直接对分组名称进行倒叙比对）
                 const sortedGroupKeys = Object.keys(groups).sort((a, b) => {
-                    // 提取组内第一张照片的日期
-                    const dateA = groups[a][0]?.date || a;
-                    const dateB = groups[b][0]?.date || b;
-                    
-                    // 使用 numeric: true 确保 10 比 9 大，并按倒序排列（最新日期在上）
-                    return dateB.localeCompare(dateA, undefined, { numeric: true, sensitivity: 'base' });
+                    // 使用 localeCompare 倒序排列：将最新的日期 (如 2026-07-10) 排在前面
+                    return b.localeCompare(a, 'zh-CN', { numeric: true, sensitivity: 'base' });
                 });
 
                 let isFirstGroup = true;
