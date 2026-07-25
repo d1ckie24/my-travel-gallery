@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🌍 我们的足迹与光影记事</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & Caveat 字体 -->
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Noto+Sans+SC:wght@400;600;800&display=swap" rel="stylesheet">
+  <!-- PhotoSwipe 5 CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe.min.css">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              coral: '#FF6B6B',
+              amber: '#FFD93D',
+              teal: '#4ECDC4',
+              sand: '#FFF9F0',
+              dark: '#2D3748'
+            }
+          },
+          fontFamily: {
+            hand: ['Caveat', 'cursive'],
+            sans: ['Noto Sans SC', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background-color: #FFFDF9; }
+    .gallery-grid {
+      column-count: 1;
+      column-gap: 1.25rem;
+    }
+    @media (min-width: 640px) { .gallery-grid { column-count: 2; } }
+    @media (min-width: 1024px) { .gallery-grid { column-count: 3; } }
+    @media (min-width: 1280px) { .gallery-grid { column-count: 4; } }
+    .gallery-item {
+      break-inside: avoid;
+      margin-bottom: 1.25rem;
+    }
+    .polaroid-shadow {
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+    }
+  </style>
+</head>
+<body class="text-gray-800 font-sans min-h-screen flex flex-col">
+
+  <!-- 头部 Hero 区域 -->
+  <header class="relative bg-gradient-to-r from-orange-400 via-rose-400 to-teal-400 text-white pt-16 pb-20 px-4 text-center overflow-hidden">
+    <div class="max-w-4xl mx-auto relative z-10">
+      <div class="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-sm font-medium mb-4 border border-white/30">
+        ✈️ 收集地图上的每一个世界
+      </div>
+      <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight mb-3 drop-shadow-sm">
+        漫游光影记事
+      </h1>
+      <p class="font-hand text-2xl md:text-3xl text-amber-100 mt-2">
+        "Collect moments, not things."
+      </p>
+
+      <!-- 统计徽章 -->
+      <div id="stats-bar" class="mt-8 flex justify-center gap-4 text-xs md:text-sm font-semibold">
+        <span class="bg-white/90 text-gray-800 px-4 py-2 rounded-2xl shadow-md">📷 <span id="total-photos">0</span> 张精彩瞬间</span>
+        <span class="bg-white/90 text-gray-800 px-4 py-2 rounded-2xl shadow-md">🗺️ <span id="total-trips">0</span> 次远行足迹</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- 筛选控制栏 (行程 / 年份) -->
+  <nav class="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-orange-100 shadow-sm py-4 px-4">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-4 overflow-x-auto" id="filter-container">
+      <div class="flex items-center gap-2" id="filter-buttons">
+        <button data-filter="all" class="filter-btn active bg-rose-500 text-white px-4 py-1.5 rounded-full text-sm font-medium transition shadow-sm">
+          🌟 全部记忆
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- 主相册展示区 -->
+  <main class="max-w-7xl mx-auto px-4 py-8 flex-grow w-full">
+    <div id="gallery-container"></div>
+  </main>
+
+  <footer class="bg-amber-50 text-center py-8 text-xs text-gray-500 border-t border-amber-100">
+    <p class="font-medium">🧭 无论海峡南北 · 记忆终将在这里相遇</p>
+    <p class="mt-1 text-gray-400">Powered by Cloudflare Pages & GitHub Actions</p>
+  </footer>
+
+  <script type="module">
+    import PhotoSwipeLightbox from 'https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe-lightbox.esm.min.js';
+
+    let allPhotos = [];
+    let activeFilter = 'all';
+
+    async function initGallery() {
+      try {
+        const res = await fetch('./photos.json');
+        if (!res.ok) throw new Error("无法加载 photos.json");
+        allPhotos = await res.json();
+
+        const trips = [...new Set(allPhotos.map(p => p.trip))];
+        document.getElementById('total-photos').textContent = allPhotos.length;
+        document.getElementById('total-trips').textContent = trips.length;
+
+        renderFilterButtons(trips);
+        renderGallery();
+
+      } catch (err) {
+        document.getElementById('gallery-container').innerHTML = `
+          <div class="text-center py-20">
+            <div class="text-5xl mb-4">🎈</div>
+            <h3 class="text-lg font-bold text-gray-700">正在等待相册照片上传...</h3>
+            <p class="text-sm text-gray-500 mt-2">请在 photos 文件夹添加照片并等待自动化生成。</p>
+          </div>
+        `;
+      }
+    }
+
+    function renderFilterButtons(trips) {
+      const btnContainer = document.getElementById('filter-buttons');
+      trips.forEach(trip => {
+        if (trip === '随手抓拍') return;
+        const btn = document.createElement('button');
+        btn.className = 'filter-btn bg-orange-50 hover:bg-orange-100 text-gray-700 px-4 py-1.5 rounded-full text-sm font-medium transition whitespace-nowrap border border-orange-200/60';
+        btn.dataset.filter = trip;
+        btn.innerHTML = `📍 ${trip}`;
+        btn.onclick = () => filterTrip(trip, btn);
+        btnContainer.appendChild(btn);
+      });
+    }
+
+    window.filterTrip = function(trip, element) {
+      activeFilter = trip;
+      document.querySelectorAll('.filter-btn').forEach(b => {
+        b.className = 'filter-btn bg-orange-50 hover:bg-orange-100 text-gray-700 px-4 py-1.5 rounded-full text-sm font-medium transition whitespace-nowrap border border-orange-200/60';
+      });
+      element.className = 'filter-btn active bg-rose-500 text-white px-4 py-1.5 rounded-full text-sm font-medium transition shadow-sm whitespace-nowrap';
+      renderGallery();
+    };
+
+    function renderGallery() {
+      const container = document.getElementById('gallery-container');
+      container.innerHTML = '';
+
+      const filtered = activeFilter === 'all' 
+        ? allPhotos 
+        : allPhotos.filter(p => p.trip === activeFilter);
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<p class="text-center py-12 text-gray-400">该行程暂无照片</p>';
+        return;
+      }
+
+      const groups = {};
+      filtered.forEach(photo => {
+        const monthGroup = photo.date ? photo.date.substring(0, 7) : '漫漫时光';
+        if (!groups[monthGroup]) groups[monthGroup] = [];
+        groups[monthGroup].push(photo);
+      });
+
+      Object.keys(groups).forEach(month => {
+        const groupEl = document.createElement('section');
+        groupEl.className = 'mb-12';
+        const formattedMonth = month.includes('-') ? `${month.split('-')[0]} 年 ${month.split('-')[1]} 月` : month;
+
+        groupEl.innerHTML = `
+          <div class="flex items-center gap-3 mb-6">
+            <div class="bg-rose-500 text-white text-xs px-3 py-1 rounded-md font-bold tracking-wider">
+              ${formattedMonth}
+            </div>
+            <div class="h-px bg-orange-200 flex-grow"></div>
+          </div>
+
+          <div class="gallery-grid pswp-gallery" id="gallery-${month}">
+            ${groups[month].map(photo => `
+              <div class="gallery-item bg-white p-2.5 rounded-2xl polaroid-shadow border border-orange-100/80 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl group">
+                <a href="${photo.src}" 
+                   data-pswp-width="${photo.width}" 
+                   data-pswp-height="${photo.height}" 
+                   target="_blank"
+                   class="block overflow-hidden rounded-xl relative">
+                  <img src="${photo.src}" 
+                       alt="${photo.title}" 
+                       loading="lazy"
+                       class="w-full h-auto object-cover transform group-hover:scale-105 transition-transform duration-500" />
+                  <div class="absolute top-2 left-2 bg-black/40 backdrop-blur-md text-white text-[10px] px-2 py-0.5 rounded-full">
+                    🗓️ ${photo.date}
+                  </div>
+                </a>
+                <div class="pt-3 px-1 flex justify-between items-center text-xs">
+                  <span class="font-semibold text-gray-700 truncate max-w-[180px]">${photo.title}</span>
+                  <span class="text-rose-400 font-medium bg-rose-50 px-2 py-0.5 rounded-md text-[11px]">${photo.trip}</span>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+
+        container.appendChild(groupEl);
+
+        const lightbox = new PhotoSwipeLightbox({
+          gallery: `#gallery-${month}`,
+          children: 'a',
+          pswpModule: () => import('https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe.esm.min.js')
+        });
+        lightbox.init();
+      });
+    }
+
+    document.querySelector('[data-filter="all"]').onclick = function() {
+      filterTrip('all', this);
+    };
+
+    initGallery();
+  </script>
+</body>
+</html>

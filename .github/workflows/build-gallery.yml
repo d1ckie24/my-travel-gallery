@@ -1,0 +1,37 @@
+name: Auto Build Photo Gallery
+
+on:
+  push:
+    paths:
+      - 'photos/**'
+      - 'generate.py'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出仓库代码
+        uses: actions/checkout@v3
+
+      - name: 配置 Python 环境
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: 安装 Pillow 图片处理库
+        run: |
+          python -m pip install --upgrade pip
+          pip install Pillow
+
+      - name: 运行 EXIF 日期解析与构建
+        run: python generate.py
+
+      - name: 自动推送索引 json
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add photos.json
+          git status
+          git diff-index --quiet HEAD || git commit -m "Auto refresh trip gallery [skip ci]"
+          git push
