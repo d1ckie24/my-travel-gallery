@@ -1,227 +1,250 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🌍 漫游光影记事</title>
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Caveat 字体与 Noto Sans SC -->
-  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Noto+Sans+SC:wght@400;600;800&display=swap" rel="stylesheet">
-  <!-- PhotoSwipe 5 CSS -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe.min.css">
-  
-  <style>
-    body { background-color: #FFFDF9; }
-    .gallery-grid {
-      column-count: 1;
-      column-gap: 1.25rem;
-    }
-    @media (min-width: 640px) { .gallery-grid { column-count: 2; } }
-    @media (min-width: 1024px) { .gallery-grid { column-count: 3; } }
-    @media (min-width: 1280px) { .gallery-grid { column-count: 4; } }
-    .gallery-item {
-      break-inside: avoid;
-      margin-bottom: 1.25rem;
-    }
-   .polaroid-shadow {
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
-}
-.pswp__top-bar {
-  display: flex !important;
-  align-items: center !important;
-}
-  </style>
-</head>
-<body class="text-gray-800 font-sans min-h-screen flex flex-col">
-
-  <!-- Header 区域 -->
-  <header class="relative bg-gradient-to-r from-orange-400 via-rose-400 to-teal-400 text-white pt-16 pb-20 px-4 text-center overflow-hidden">
-    <div class="max-w-4xl mx-auto relative z-10">
-      <div class="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-sm font-medium mb-4 border border-white/30">
-        ✈️ 收集地图上的每一个世界
-      </div>
-      <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight mb-3 drop-shadow-sm">
-        漫游光影记事
-      </h1>
-      <p class="font-hand text-2xl md:text-3xl text-amber-100 mt-2">
-        "Collect moments, not things."
-      </p>
-
-      <div id="stats-bar" class="mt-8 flex justify-center gap-4 text-xs md:text-sm font-semibold">
-        <span class="bg-white/90 text-gray-800 px-4 py-2 rounded-2xl shadow-md">📷 <span id="total-photos">0</span> 张精彩瞬间</span>
-        <span class="bg-white/90 text-gray-800 px-4 py-2 rounded-2xl shadow-md">🗺️ <span id="total-trips">0</span> 次远行足迹</span>
-      </div>
-    </div>
-  </header>
-
-  <!-- 行程筛选 Bar -->
-  <nav class="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-orange-100 shadow-sm py-4 px-4">
-    <div class="max-w-7xl mx-auto flex items-center justify-between gap-4 overflow-x-auto">
-      <div class="flex items-center gap-2" id="filter-buttons">
-        <button data-filter="all" class="filter-btn active bg-rose-500 text-white px-4 py-1.5 rounded-full text-sm font-medium transition shadow-sm whitespace-nowrap">
-          🌟 全部记忆
-        </button>
-      </div>
-    </div>
-  </nav>
-
-  <!-- 主相册网格 -->
-  <main class="max-w-7xl mx-auto px-4 py-8 flex-grow w-full">
-    <div id="gallery-container"></div>
-  </main>
-
-  <footer class="bg-amber-50 text-center py-8 text-xs text-gray-500 border-t border-amber-100">
-    <p class="font-medium">🧭 无论海峡南北 · 记忆终将在这里相遇</p>
-    <p class="mt-1 text-gray-400">Powered by Cloudflare R2 & Cloudflare Pages</p>
-  </footer>
-
-  <script type="module">
-    import PhotoSwipeLightbox from 'https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe-lightbox.esm.min.js';
-
-    let allPhotos = [];
-    let activeFilter = 'all';
-
-    async function initGallery() {
-      try {
-        const res = await fetch('./photos.json');
-        if (!res.ok) throw new Error("无法加载 photos.json");
-        allPhotos = await res.json();
-
-        const trips = [...new Set(allPhotos.map(p => p.trip))];
-        document.getElementById('total-photos').textContent = allPhotos.length;
-        document.getElementById('total-trips').textContent = trips.length;
-
-        renderFilterButtons(trips);
-        renderGallery();
-
-      } catch (err) {
-        document.getElementById('gallery-container').innerHTML = `
-          <div class="text-center py-20">
-            <div class="text-5xl mb-4">🎈</div>
-            <h3 class="text-lg font-bold text-gray-700">尚未检测到照片索引...</h3>
-            <p class="text-sm text-gray-500 mt-2">请先运行 Python 脚本将照片同步至 Cloudflare R2。</p>
-          </div>
-        `;
-      }
-    }
-
-    function renderFilterButtons(trips) {
-      const btnContainer = document.getElementById('filter-buttons');
-      trips.forEach(trip => {
-        if (trip === '随手抓拍') return;
-        const btn = document.createElement('button');
-        btn.className = 'filter-btn bg-orange-50 hover:bg-orange-100 text-gray-700 px-4 py-1.5 rounded-full text-sm font-medium transition whitespace-nowrap border border-orange-200/60';
-        btn.innerHTML = `📍 ${trip}`;
-        btn.onclick = () => filterTrip(trip, btn);
-        btnContainer.appendChild(btn);
-      });
-    }
-
-    window.filterTrip = function(trip, element) {
-      activeFilter = trip;
-      document.querySelectorAll('.filter-btn').forEach(b => {
-        b.className = 'filter-btn bg-orange-50 hover:bg-orange-100 text-gray-700 px-4 py-1.5 rounded-full text-sm font-medium transition whitespace-nowrap border border-orange-200/60';
-      });
-      element.className = 'filter-btn active bg-rose-500 text-white px-4 py-1.5 rounded-full text-sm font-medium transition shadow-sm whitespace-nowrap';
-      renderGallery();
-    };
-
-    function renderGallery() {
-      const container = document.getElementById('gallery-container');
-      container.innerHTML = '';
-
-      const filtered = activeFilter === 'all' 
-        ? allPhotos 
-        : allPhotos.filter(p => p.trip === activeFilter);
-
-      if (filtered.length === 0) {
-        container.innerHTML = '<p class="text-center py-12 text-gray-400">该行程暂无照片</p>';
-        return;
-      }
-
-      const groups = {};
-      filtered.forEach(photo => {
-        const monthGroup = photo.date ? photo.date.substring(0, 7) : '漫漫时光';
-        if (!groups[monthGroup]) groups[monthGroup] = [];
-        groups[monthGroup].push(photo);
-      });
-
-      Object.keys(groups).forEach(month => {
-        const groupEl = document.createElement('section');
-        groupEl.className = 'mb-12';
-        const formattedMonth = month.includes('-') ? `${month.split('-')[0]} 年 ${month.split('-')[1]} 月` : month;
-
-        groupEl.innerHTML = `
-          <div class="flex items-center gap-3 mb-6">
-            <div class="bg-rose-500 text-white text-xs px-3 py-1 rounded-md font-bold tracking-wider">
-              ${formattedMonth}
-            </div>
-            <div class="h-px bg-orange-200 flex-grow"></div>
-          </div>
-
-          <div class="gallery-grid pswp-gallery" id="gallery-${month}">
-            ${groups[month].map(photo => `
-              <div class="gallery-item bg-white p-2.5 rounded-2xl polaroid-shadow border border-orange-100/80 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl group">
-                <a href="${photo.src}" 
-                   data-pswp-width="${photo.width}" 
-                   data-pswp-height="${photo.height}" 
-                   data-raw-url="${photo.raw}"
-                   target="_blank"
-                   class="block overflow-hidden rounded-xl relative">
-                  <!-- 首页优先加载微缩图 thumb -->
-                  <img src="${photo.thumb || photo.src}" 
-                       alt="${photo.title}" 
-                       loading="lazy"
-                       class="w-full h-auto object-cover transform group-hover:scale-105 transition-transform duration-500" />
-                  <div class="absolute top-2 left-2 bg-black/40 backdrop-blur-md text-white text-[10px] px-2 py-0.5 rounded-full">
-                    🗓️ ${photo.date}
-                  </div>
-                </a>
-                <div class="pt-3 px-1 flex justify-between items-center text-xs">
-                  <span class="font-semibold text-gray-700 truncate max-w-[180px]">${photo.title}</span>
-                  <span class="text-rose-400 font-medium bg-rose-50 px-2 py-0.5 rounded-md text-[11px]">${photo.trip}</span>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        `;
-
-        container.appendChild(groupEl);
-
-        const lightbox = new PhotoSwipeLightbox({
-          gallery: `#gallery-${month}`,
-          children: 'a',
-          pswpModule: () => import('https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe.esm.min.js')
-        });
-
-       // 注入高亮大号“下载超清原图”按钮到 Lightbox 顶部控制栏
-    lightbox.on('uiRegister', function() {
-      lightbox.pswp.ui.registerElement({
-        name: 'download-button',
-        ariaLabel: '下载原图',
-        order: 8,
-        isButton: false,
-        html: '<button type="button" class="inline-flex items-center gap-1.5 bg-rose-500 hover:bg-rose-600 text-white px-3.5 py-1.5 rounded-full text-xs font-bold shadow-lg transition-all duration-200 hover:scale-105 active:scale-95 my-auto mr-3 cursor-pointer border-0 outline-none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>下载原图</span></button>',
-        onClick: (event, el, pswp) => {
-          const currSlide = pswp.currSlide;
-          const rawUrl = currSlide.data.element ? currSlide.data.element.getAttribute('data-raw-url') : null;
-          if (rawUrl) {
-            window.open(rawUrl, '_blank');
-          }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌍 我的旅行相册</title>
+    <!-- PhotoSwipe 5 样式 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            background: #f4f6f8; 
+            color: #2c3e50;
+            padding-bottom: 40px;
         }
-      });
-    });
 
-    lightbox.init();
-  });
-}
+        header { 
+            text-align: center; 
+            padding: 30px 16px 15px; 
+            background: #fff;
+            border-bottom: 1px solid #eef2f5;
+            margin-bottom: 20px;
+        }
+        header h1 { font-size: 1.6rem; font-weight: 700; color: #1a1a1a; }
+        header p { color: #7f8c8d; font-size: 0.9rem; margin-top: 4px; }
 
-    document.querySelector('[data-filter="all"]').onclick = function() {
-      filterTrip('all', this);
-    };
+        .main-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 12px;
+        }
 
-    initGallery();
-  </script>
+        /* 📅 分组折叠卡片 */
+        .group-card {
+            background: #fff;
+            border-radius: 14px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            overflow: hidden;
+            border: 1px solid #eaeaea;
+        }
+
+        .group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            cursor: pointer;
+            user-select: none;
+            background: #fff;
+            transition: background 0.2s;
+        }
+        .group-header:active { background: #f8f9fa; }
+
+        .group-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.05rem;
+            font-weight: 600;
+        }
+        .group-badge {
+            font-size: 0.8rem;
+            color: #666;
+            background: #f0f2f5;
+            padding: 3px 10px;
+            border-radius: 12px;
+        }
+
+        .arrow-icon {
+            font-size: 0.8rem;
+            color: #999;
+            transition: transform 0.3s ease;
+        }
+
+        /* 折叠状态 */
+        .group-card.collapsed .group-body { display: none; }
+        .group-card.collapsed .arrow-icon { transform: rotate(-90deg); }
+
+        .group-body {
+            padding: 12px;
+            border-top: 1px solid #f5f5f5;
+            background: #fafafa;
+        }
+
+        /* 🖼️ 照片网格：电脑端 4-5 列，手机端双列 */
+        .photo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 12px;
+        }
+
+        /* 📱 手机端适配 (强制双列) */
+        @media (max-width: 768px) {
+            .photo-grid {
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 8px; 
+            }
+            .group-header { padding: 14px 16px; }
+            .group-body { padding: 8px; }
+        }
+
+        .photo-card {
+            position: relative;
+            aspect-ratio: 1 / 1; 
+            border-radius: 8px;
+            overflow: hidden;
+            background: #e2e8f0;
+            cursor: pointer;
+        }
+        .photo-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            transition: transform 0.2s ease;
+        }
+        .photo-card:active img { transform: scale(0.96); }
+
+        /* 🔥 高亮红底下载按钮 */
+        .pswp__button--download-custom {
+            background: #e63946 !important;
+            color: #ffffff !important;
+            width: auto !important;
+            padding: 0 16px !important;
+            border-radius: 20px !important;
+            height: 36px !important;
+            margin-top: 8px !important;
+            margin-right: 12px !important;
+            font-weight: bold !important;
+            font-size: 13px !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+            opacity: 1 !important;
+            box-shadow: 0 2px 8px rgba(230, 57, 70, 0.4);
+            border: none;
+            cursor: pointer;
+        }
+        .pswp__button--download-custom:hover { background: #d62828 !important; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>📸 我的旅行相册</h1>
+        <p>点击日期条可展开/折叠，点击照片查看原图</p>
+    </header>
+
+    <div class="main-container" id="mainContainer"></div>
+
+    <script type="module">
+        import PhotoSwipeLightbox from 'https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe-lightbox.esm.js';
+        import PhotoSwipe from 'https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe.esm.js';
+
+        fetch('photos.json')
+            .then(res => res.json())
+            .then(photos => {
+                const container = document.getElementById('mainContainer');
+                
+                // 按日期归类
+                const groups = {};
+                photos.forEach(photo => {
+                    const date = photo.date || '其他记录';
+                    if (!groups[date]) groups[date] = [];
+                    groups[date].push(photo);
+                });
+
+                let isFirstGroup = true;
+
+                // 渲染每个折叠卡片
+                Object.keys(groups).forEach(date => {
+                    const groupPhotos = groups[date];
+
+                    const card = document.createElement('div');
+                    // 默认展开第一个（最新的日期），其余折叠
+                    card.className = `group-card ${isFirstGroup ? '' : 'collapsed'}`;
+                    isFirstGroup = false;
+
+                    card.innerHTML = `
+                        <div class="group-header">
+                            <div class="group-title">
+                                📅 <span>${date}</span>
+                                <span class="group-badge">${groupPhotos.length} 张</span>
+                            </div>
+                            <span class="arrow-icon">▼</span>
+                        </div>
+                        <div class="group-body">
+                            <div class="photo-grid pswp-gallery" id="gallery-${date}"></div>
+                        </div>
+                    `;
+
+                    // 展开/折叠交互
+                    card.querySelector('.group-header').addEventListener('click', () => {
+                        card.classList.toggle('collapsed');
+                    });
+
+                    // 填充网格
+                    const grid = card.querySelector('.photo-grid');
+                    groupPhotos.forEach(photo => {
+                        const item = document.createElement('a');
+                        item.className = 'photo-card';
+                        item.href = photo.url_large; 
+                        item.dataset.pswpWidth = photo.width || 1920;
+                        item.dataset.pswpHeight = photo.height || 1080;
+                        item.dataset.rawUrl = photo.url_raw; 
+                        item.target = '_blank';
+
+                        item.innerHTML = `<img src="${photo.url_thumb}" loading="lazy" alt="photo" />`;
+                        grid.appendChild(item);
+                    });
+
+                    container.appendChild(card);
+                });
+
+                // 初始化 PhotoSwipe
+                const lightbox = new PhotoSwipeLightbox({
+                    gallery: '.pswp-gallery',
+                    children: 'a',
+                    pswpModule: PhotoSwipe
+                });
+
+                // 注入高亮下载按钮
+                lightbox.on('uiRegister', function() {
+                    lightbox.pswp.ui.registerElement({
+                        name: 'download-button',
+                        order: 8,
+                        isButton: true,
+                        tagName: 'button',
+                        html: '⬇️ 下载原图',
+                        onInit: (el, pswp) => {
+                            el.classList.add('pswp__button--download-custom');
+                            el.onclick = (e) => {
+                                e.preventDefault();
+                                const currSlide = pswp.currSlide;
+                                const rawUrl = currSlide.data.element.dataset.rawUrl;
+                                if (rawUrl) {
+                                    window.open(rawUrl, '_blank');
+                                }
+                            };
+                        }
+                    });
+                });
+
+                lightbox.init();
+            });
+    </script>
 </body>
 </html>
