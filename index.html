@@ -11,18 +11,6 @@
   <!-- PhotoSwipe 5 CSS -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe.min.css">
   
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            hand: ['Caveat', 'cursive'],
-            sans: ['Noto Sans SC', 'sans-serif']
-          }
-        }
-      }
-    }
-  </script>
   <style>
     body { background-color: #FFFDF9; }
     .gallery-grid {
@@ -174,9 +162,11 @@
                 <a href="${photo.src}" 
                    data-pswp-width="${photo.width}" 
                    data-pswp-height="${photo.height}" 
+                   data-raw-url="${photo.raw}"
                    target="_blank"
                    class="block overflow-hidden rounded-xl relative">
-                  <img src="${photo.src}" 
+                  <!-- 首页优先加载微缩图 thumb -->
+                  <img src="${photo.thumb || photo.src}" 
                        alt="${photo.title}" 
                        loading="lazy"
                        class="w-full h-auto object-cover transform group-hover:scale-105 transition-transform duration-500" />
@@ -200,6 +190,25 @@
           children: 'a',
           pswpModule: () => import('https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe.esm.min.js')
         });
+
+        // 注入自定义“下载超清原图”按钮到 Lightbox 顶部控制栏
+        lightbox.on('uiRegister', function() {
+          lightbox.pswp.ui.registerElement({
+            name: 'download-button',
+            ariaLabel: '下载原图',
+            order: 8,
+            isButton: true,
+            html: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+            onClick: (event, el, pswp) => {
+              const currSlide = pswp.currSlide;
+              const rawUrl = currSlide.data.element.getAttribute('data-raw-url');
+              if (rawUrl) {
+                window.open(rawUrl, '_blank');
+              }
+            }
+          });
+        });
+
         lightbox.init();
       });
     }
