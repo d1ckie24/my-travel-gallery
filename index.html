@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🌍 我们的足迹与光影记事</title>
+  <title>🌍 漫游光影记事</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Google Fonts: Inter & Caveat 字体 -->
+  <!-- Caveat 字体与 Noto Sans SC -->
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Noto+Sans+SC:wght@400;600;800&display=swap" rel="stylesheet">
   <!-- PhotoSwipe 5 CSS -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe.min.css">
@@ -15,15 +15,6 @@
     tailwind.config = {
       theme: {
         extend: {
-          colors: {
-            brand: {
-              coral: '#FF6B6B',
-              amber: '#FFD93D',
-              teal: '#4ECDC4',
-              sand: '#FFF9F0',
-              dark: '#2D3748'
-            }
-          },
           fontFamily: {
             hand: ['Caveat', 'cursive'],
             sans: ['Noto Sans SC', 'sans-serif']
@@ -52,7 +43,7 @@
 </head>
 <body class="text-gray-800 font-sans min-h-screen flex flex-col">
 
-  <!-- 头部 Hero 区域 -->
+  <!-- Header 区域 -->
   <header class="relative bg-gradient-to-r from-orange-400 via-rose-400 to-teal-400 text-white pt-16 pb-20 px-4 text-center overflow-hidden">
     <div class="max-w-4xl mx-auto relative z-10">
       <div class="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-sm font-medium mb-4 border border-white/30">
@@ -65,7 +56,6 @@
         "Collect moments, not things."
       </p>
 
-      <!-- 统计徽章 -->
       <div id="stats-bar" class="mt-8 flex justify-center gap-4 text-xs md:text-sm font-semibold">
         <span class="bg-white/90 text-gray-800 px-4 py-2 rounded-2xl shadow-md">📷 <span id="total-photos">0</span> 张精彩瞬间</span>
         <span class="bg-white/90 text-gray-800 px-4 py-2 rounded-2xl shadow-md">🗺️ <span id="total-trips">0</span> 次远行足迹</span>
@@ -73,25 +63,25 @@
     </div>
   </header>
 
-  <!-- 筛选控制栏 (行程 / 年份) -->
+  <!-- 行程筛选 Bar -->
   <nav class="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-orange-100 shadow-sm py-4 px-4">
-    <div class="max-w-7xl mx-auto flex items-center justify-between gap-4 overflow-x-auto" id="filter-container">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-4 overflow-x-auto">
       <div class="flex items-center gap-2" id="filter-buttons">
-        <button data-filter="all" class="filter-btn active bg-rose-500 text-white px-4 py-1.5 rounded-full text-sm font-medium transition shadow-sm">
+        <button data-filter="all" class="filter-btn active bg-rose-500 text-white px-4 py-1.5 rounded-full text-sm font-medium transition shadow-sm whitespace-nowrap">
           🌟 全部记忆
         </button>
       </div>
     </div>
   </nav>
 
-  <!-- 主相册展示区 -->
+  <!-- 主相册网格 -->
   <main class="max-w-7xl mx-auto px-4 py-8 flex-grow w-full">
     <div id="gallery-container"></div>
   </main>
 
   <footer class="bg-amber-50 text-center py-8 text-xs text-gray-500 border-t border-amber-100">
     <p class="font-medium">🧭 无论海峡南北 · 记忆终将在这里相遇</p>
-    <p class="mt-1 text-gray-400">Powered by Cloudflare Pages & GitHub Actions</p>
+    <p class="mt-1 text-gray-400">Powered by Cloudflare R2 & Cloudflare Pages</p>
   </footer>
 
   <script type="module">
@@ -117,8 +107,8 @@
         document.getElementById('gallery-container').innerHTML = `
           <div class="text-center py-20">
             <div class="text-5xl mb-4">🎈</div>
-            <h3 class="text-lg font-bold text-gray-700">正在等待相册照片上传...</h3>
-            <p class="text-sm text-gray-500 mt-2">请在 photos 文件夹添加照片并等待自动化生成。</p>
+            <h3 class="text-lg font-bold text-gray-700">尚未检测到照片索引...</h3>
+            <p class="text-sm text-gray-500 mt-2">请先运行 Python 脚本将照片同步至 Cloudflare R2。</p>
           </div>
         `;
       }
@@ -130,7 +120,6 @@
         if (trip === '随手抓拍') return;
         const btn = document.createElement('button');
         btn.className = 'filter-btn bg-orange-50 hover:bg-orange-100 text-gray-700 px-4 py-1.5 rounded-full text-sm font-medium transition whitespace-nowrap border border-orange-200/60';
-        btn.dataset.filter = trip;
         btn.innerHTML = `📍 ${trip}`;
         btn.onclick = () => filterTrip(trip, btn);
         btnContainer.appendChild(btn);
