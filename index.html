@@ -24,9 +24,13 @@
       break-inside: avoid;
       margin-bottom: 1.25rem;
     }
-    .polaroid-shadow {
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
-    }
+   .polaroid-shadow {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+}
+.pswp__top-bar {
+  display: flex !important;
+  align-items: center !important;
+}
   </style>
 </head>
 <body class="text-gray-800 font-sans min-h-screen flex flex-col">
@@ -191,27 +195,27 @@
           pswpModule: () => import('https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.3.7/photoswipe.esm.min.js')
         });
 
-        // 注入自定义“下载超清原图”按钮到 Lightbox 顶部控制栏
-        lightbox.on('uiRegister', function() {
-          lightbox.pswp.ui.registerElement({
-            name: 'download-button',
-            ariaLabel: '下载原图',
-            order: 8,
-            isButton: true,
-            html: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
-            onClick: (event, el, pswp) => {
-              const currSlide = pswp.currSlide;
-              const rawUrl = currSlide.data.element.getAttribute('data-raw-url');
-              if (rawUrl) {
-                window.open(rawUrl, '_blank');
-              }
-            }
-          });
-        });
-
-        lightbox.init();
+       // 注入高亮大号“下载超清原图”按钮到 Lightbox 顶部控制栏
+    lightbox.on('uiRegister', function() {
+      lightbox.pswp.ui.registerElement({
+        name: 'download-button',
+        ariaLabel: '下载原图',
+        order: 8,
+        isButton: false,
+        html: '<button type="button" class="inline-flex items-center gap-1.5 bg-rose-500 hover:bg-rose-600 text-white px-3.5 py-1.5 rounded-full text-xs font-bold shadow-lg transition-all duration-200 hover:scale-105 active:scale-95 my-auto mr-3 cursor-pointer border-0 outline-none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>下载原图</span></button>',
+        onClick: (event, el, pswp) => {
+          const currSlide = pswp.currSlide;
+          const rawUrl = currSlide.data.element ? currSlide.data.element.getAttribute('data-raw-url') : null;
+          if (rawUrl) {
+            window.open(rawUrl, '_blank');
+          }
+        }
       });
-    }
+    });
+
+    lightbox.init();
+  });
+}
 
     document.querySelector('[data-filter="all"]').onclick = function() {
       filterTrip('all', this);
