@@ -1,10 +1,9 @@
 import os
 import json
-import mimetypes
-from PIL import Image, ImageOps
-import exifread
 import boto3
-from botocore.config import Config
+from urllib.parse import quote
+from PIL import Image, ExifTags
+from datetime import datetime
 
 
 
@@ -16,157 +15,216 @@ R2_SECRET_ACCESS_KEY = "265aab6e1ef57b2103985c0c2254cee84a822926620087d5607ba165
 R2_BUCKET_NAME = "my-travel-photos"  # 你的 Bucket 名称
 R2_PUBLIC_DOMAIN = "https://pub-af9c14e228f5496cba389e5f458c6b09.r2.dev" # 你的 R2 公开访问域名 (不带末尾斜杠)
 
+# 2. 图片处理配置
+PHOTOS_DIR = "photos"
+OUTPUT_FILE = "photos.json"
+ALLOWED_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".JPG", ".JPEG", ".PNG"}
 
-PHOTOS_DIR = "photos"               
-OUTPUT_JSON = "photos.json"
-OUTPUT_FILE = OUTPUT_JSON  # 兼容不同配置变量名
-SUPPORTED_EXTS = ('.jpg', '.jpeg', '.png', '.webp')
+# 高清大图配置（用于点击放大查看）
+LARGE_MAX_DIM = 2048  
+LARGE_QUALITY = 82    
 
+# 首页缩略图配置（用于首页极速网格展示，约 20-50KB/张）
+THUMB_MAX_DIM = 500   
+THUMB_QUALITY = 75    
+# ==================================================
 
-# 初始化 S3/R2 客户端
-s3_client = boto3.client(
-    "s3",
-    endpoint_url=f"https://d3d5c673304dd19da39b031e0d17acfb.r2.cloudflarestorage.com",
-    aws_access_key_id=R2_ACCESS_KEY_ID,
-    aws_secret_access_key=R2_SECRET_ACCESS_KEY,
-    config=Config(signature_version="s3v4"),
-    region_name="auto"
-)
+def is_r2_configured():
+    """检查用户是否配置了有效的 R2 密钥信息"""
+    return not (
+        "你的" in R2_ENDPOINT_URL or
+        "你的" in R2_ACCESS_KEY_ID or
+        "你的" in R2_SECRET_ACCESS_KEY or
+        "xxxxxxxx" in R2_PUBLIC_DOMAIN or
+        "<" in R2_ENDPOINT_URL
+    )
 
-def get_exif_date(file_path):
-    """从照片 EXIF 中提取拍摄日期"""
+def get_exif_data(img_path):
+    """提取照片 EXIF 拍摄日期和尺寸，失败退回文件修改时间"""
+    date_str = None
+    width, height = 1920, 1080
     try:
-        with open(file_path, 'rb') as f:
-            tags = exifread.process_file(f, stop_tag='EXIF DateTimeOriginal', details=False)
-            if 'EXIF DateTimeOriginal' in tags:
-                date_str = str(tags['EXIF DateTimeOriginal'])
-                return date_str.split(' ')[0].replace(':', '-')
+        with Image.open(img_path) as img:
+            width, height = img.size
+            exif = img._getexif()
+            if exif:
+                for tag_id, value in exif.items():
+                    tag = ExifTags.TAGS.get(tag_id, tag_id)
+                    if tag in ['DateTimeOriginal', 'DateTime']:
+                        date_part = str(value).split(" ")[0].replace(":", "-")
+                        if len(date_part) == 10:
+                            date_str = date_part
+                            break
     except Exception:
         pass
-    return None
+    
+    if not date_str:
+        mtime = os.path.getmtime(img_path)
+        date_str = datetime.fromtimestamp(mtime).strftime('%Y-%m-%d')
+        
+    return date_str, width, height
 
-def process_and_upload():
-    if not os.path.exists(PHOTOS_DIR):
-        os.makedirs(PHOTOS_DIR)
-        print(f"📁 已创建 '{PHOTOS_DIR}' 文件夹，请放入照片文件夹后重新运行。")
-        return
+def fix_orientation(img):
+    """修正图片 EXIF 旋转方向"""
+    try:
+        for orientation in ExifTags.TAGS.keys():
+            if ExifTags.TAGS[orientation] == 'Orientation':
+                break
+        exif = dict(img._getexif().items())
+        if exif[orientation] == 3: return img.rotate(180, expand=True)
+        elif exif[orientation] == 6: return img.rotate(270, expand=True)
+        elif exif[orientation] == 8: return img.rotate(90, expand=True)
+    except Exception:
+        pass
+    return img
 
-    # 1. 递归扫描本地 photos/ 下的所有照片（含子文件夹）
-    local_photo_map = {} # rel_path -> full_path
+def run_local_mode():
+    """本地离线模式：直接读取本地照片文件夹生成 photos.json"""
+    print("💡 提示: 未检测到有效的 R2 密钥信息，启动【本地测试模式】。")
+    photos = []
+    
     for root, _, files in os.walk(PHOTOS_DIR):
-        for file in files:
-            if file.lower().endswith(SUPPORTED_EXTS) and not file.startswith('.'):
+        for file in sorted(files):
+            ext = os.path.splitext(file)[1]
+            if ext in ALLOWED_EXTS and not file.endswith("_temp.webp"):
                 full_path = os.path.join(root, file)
                 rel_path = os.path.relpath(full_path, PHOTOS_DIR).replace("\\", "/")
-                local_photo_map[rel_path] = full_path
+                
+                date_str, width, height = get_exif_data(full_path)
+                path_parts = rel_path.split("/")
+                trip_name = path_parts[0] if len(path_parts) > 1 else "随手抓拍"
+                year = date_str.split("-")[0] if "-" in date_str else "未知"
+                title = os.path.splitext(os.path.basename(full_path))[0].replace("-", " ").replace("_", " ")
 
-    print(f"🔍 本地扫描到 {len(local_photo_map)} 张照片。")
+                local_url = f"{PHOTOS_DIR}/{rel_path}"
+                
+                photos.append({
+                    "src": local_url,
+                    "thumb": local_url,
+                    "width": width,
+                    "height": height,
+                    "title": title,
+                    "date": date_str,
+                    "year": year,
+                    "trip": trip_name
+                })
 
-    # 2. 检查与清理 R2 上的废弃/不规范文件
-    print("🔍 正在检查与清理 R2 上的废弃与错乱文件...")
+    photos.sort(key=lambda x: x['date'], reverse=True)
+
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+        json.dump(photos, f, ensure_ascii=False, indent=2)
+
+    print(f"🎉 [本地模式] 完成！共生成 {len(photos)} 张照片索引至 {OUTPUT_FILE}。")
+
+def run_r2_mode():
+    """云端增量同步模式：仅上传 R2 缺失的图片，并进行 URL 安全转码"""
+    s3_client = boto3.client(
+        's3',
+        endpoint_url=R2_ENDPOINT_URL,
+        aws_access_key_id=R2_ACCESS_KEY_ID,
+        aws_secret_access_key=R2_SECRET_ACCESS_KEY,
+        region_name='auto'
+    )
+
+    existing_keys = set()
+    print("🔍 正在拉取 Cloudflare R2 云端已有文件列表...")
     try:
         paginator = s3_client.get_paginator('list_objects_v2')
         for page in paginator.paginate(Bucket=R2_BUCKET_NAME):
             if 'Contents' in page:
                 for obj in page['Contents']:
-                    key = obj['Key']
-                    
-                    # 判断 R2 key 结构
-                    is_valid = False
-                    for prefix in ['raw/', 'images/', 'thumbs/']:
-                        if key.startswith(prefix):
-                            # 提取相对路径
-                            sub_path = key[len(prefix):]
-                            # 还原原始相对路径（去除 _thumb.jpg / _large.jpg 后缀）
-                            if prefix == 'thumbs/':
-                                raw_rel = sub_path.rsplit('_thumb.', 1)[0]
-                            elif prefix == 'images/':
-                                raw_rel = sub_path.rsplit('_large.', 1)[0]
-                            else:
-                                raw_rel = sub_path
-                            
-                            # 检查本地是否存在匹配前缀的源文件
-                            for local_rel in local_photo_map:
-                                if local_rel.rsplit('.', 1)[0] == raw_rel or local_rel == raw_rel:
-                                    is_valid = True
-                                    break
-                            break
-
-                    # 若不规范（如直接建在根目录的文件夹）或本地已删除，则从 R2 删除
-                    if not is_valid:
-                        print(f"🗑️ 正在清理 R2 废弃/无效文件: {key}")
-                        s3_client.delete_object(Bucket=R2_BUCKET_NAME, Key=key)
+                    existing_keys.add(obj['Key'])
+        print(f"✅ R2 检查完成，云端共有 {len(existing_keys)} 个文件。")
     except Exception as e:
-        print(f"⚠️ 清理提示: {e}")
+        print(f"⚠️ 获取 R2 已有文件列表失败: {e}")
 
-    print("🚀 开始处理并同步照片...")
-    photos_data = []
+    photos = []
 
-    for rel_path, full_path in local_photo_map.items():
-        base_rel_no_ext, _ = os.path.splitext(rel_path)
-        filename = os.path.basename(full_path)
-        name_without_ext, _ = os.path.splitext(filename)
+    for root, _, files in os.walk(PHOTOS_DIR):
+        for file in sorted(files):
+            ext = os.path.splitext(file)[1]
+            if ext in ALLOWED_EXTS and not file.endswith("_temp.webp"):
+                full_path = os.path.join(root, file)
+                rel_path = os.path.relpath(full_path, PHOTOS_DIR).replace("\\", "/")
+                base_rel = os.path.splitext(rel_path)[0]
 
-        # 解析行程名称 (如果放在子文件夹中，子文件夹名即为行程名)
-        path_parts = rel_path.split("/")
-        trip_name = path_parts[0] if len(path_parts) > 1 else "随手抓拍"
+                large_r2_key = f"images/{base_rel}.webp"
+                thumb_r2_key = f"thumbs/{base_rel}.webp"
 
-        date_str = get_exif_date(full_path)
+                date_str, width, height = get_exif_data(full_path)
 
-        with Image.open(full_path) as img:
-            img = ImageOps.exif_transpose(img) # 自动纠正旋转
-            
-            # --- 1. 缩略图 (网格极速加载) ---
-            img_thumb = img.copy()
-            img_thumb.thumbnail((500, 500), Image.Resampling.LANCZOS)
-            thumb_filename = f"{name_without_ext}_thumb.jpg"
-            thumb_path = full_path + "_thumb_temp.jpg"
-            img_thumb.convert("RGB").save(thumb_path, "JPEG", quality=75, optimize=True)
+                # 核心修复点：将路径中的空格、中文等转码为标准的 HTTP URL (%20 等)
+                large_url = f"{R2_PUBLIC_DOMAIN}/{quote(large_r2_key, safe='/')}"
+                thumb_url = f"{R2_PUBLIC_DOMAIN}/{quote(thumb_r2_key, safe='/')}"
 
-            # --- 2. 高清大图 (弹窗预览) ---
-            img_large = img.copy()
-            img_large.thumbnail((2048, 2048), Image.Resampling.LANCZOS)
-            large_w, large_h = img_large.size
-            large_filename = f"{name_without_ext}_large.jpg"
-            large_path = full_path + "_large_temp.jpg"
-            img_large.convert("RGB").save(large_path, "JPEG", quality=85, optimize=True)
+                need_large = large_r2_key not in existing_keys
+                need_thumb = thumb_r2_key not in existing_keys
 
-        # R2 存储路径设计（保持子文件夹层级）
-        rel_dir = os.path.dirname(rel_path)
-        r2_raw_key = f"raw/{rel_path}"
-        r2_large_key = f"images/{os.path.join(rel_dir, large_filename).replace('\\', '/')}" if rel_dir else f"images/{large_filename}"
-        r2_thumb_key = f"thumbs/{os.path.join(rel_dir, thumb_filename).replace('\\', '/')}" if rel_dir else f"thumbs/{thumb_filename}"
+                if need_large or need_thumb:
+                    try:
+                        with Image.open(full_path) as orig_img:
+                            img = fix_orientation(orig_img)
+                            if img.mode in ("RGBA", "P"):
+                                img = img.convert("RGB")
 
-        print(f"📦 正在同步: {rel_path}")
+                            if need_large:
+                                large_img = img.copy()
+                                if large_img.width > LARGE_MAX_DIM or large_img.height > LARGE_MAX_DIM:
+                                    large_img.thumbnail((LARGE_MAX_DIM, LARGE_MAX_DIM), Image.Resampling.LANCZOS)
+                                temp_large = full_path + "_large_temp.webp"
+                                large_img.save(temp_large, "WEBP", quality=LARGE_QUALITY, optimize=True)
+                                print(f"🖼️ 上传大图: {large_r2_key}")
+                                s3_client.upload_file(temp_large, R2_BUCKET_NAME, large_r2_key, ExtraArgs={'ContentType': 'image/webp'})
+                                if os.path.exists(temp_large): os.remove(temp_large)
 
-        content_type, _ = mimetypes.guess_type(full_path)
-        s3_client.upload_file(full_path, R2_BUCKET_NAME, r2_raw_key, ExtraArgs={"ContentType": content_type or "image/jpeg"})
-        s3_client.upload_file(large_path, R2_BUCKET_NAME, r2_large_key, ExtraArgs={"ContentType": "image/jpeg"})
-        s3_client.upload_file(thumb_path, R2_BUCKET_NAME, r2_thumb_key, ExtraArgs={"ContentType": "image/jpeg"})
+                            if need_thumb:
+                                thumb_img = img.copy()
+                                if thumb_img.width > THUMB_MAX_DIM or thumb_img.height > THUMB_MAX_DIM:
+                                    thumb_img.thumbnail((THUMB_MAX_DIM, THUMB_MAX_DIM), Image.Resampling.LANCZOS)
+                                temp_thumb = full_path + "_thumb_temp.webp"
+                                thumb_img.save(temp_thumb, "WEBP", quality=THUMB_QUALITY, optimize=True)
+                                print(f"⚡ 上传缩略图: {thumb_r2_key}")
+                                s3_client.upload_file(temp_thumb, R2_BUCKET_NAME, thumb_r2_key, ExtraArgs={'ContentType': 'image/webp'})
+                                if os.path.exists(temp_thumb): os.remove(temp_thumb)
 
-        # 清理本地生成的临时文件
-        if os.path.exists(thumb_path): os.remove(thumb_path)
-        if os.path.exists(large_path): os.remove(large_path)
+                    except Exception as e:
+                        print(f"❌ 上传失败 {full_path}: {e}")
+                else:
+                    print(f"⏩ 已存在，自动跳过: {rel_path}")
 
-        photos_data.append({
-            "id": name_without_ext,
-            "filename": filename,
-            "trip": trip_name,
-            "date": date_str or "未知日期",
-            "url_thumb": f"{R2_PUBLIC_DOMAIN}/{r2_thumb_key}",
-            "url_large": f"{R2_PUBLIC_DOMAIN}/{r2_large_key}",
-            "url_raw": f"{R2_PUBLIC_DOMAIN}/{r2_raw_key}",
-            "width": large_w,
-            "height": large_h
-        })
+                path_parts = rel_path.split("/")
+                trip_name = path_parts[0] if len(path_parts) > 1 else "随手抓拍"
+                year = date_str.split("-")[0] if "-" in date_str else "未知"
+                title = os.path.splitext(os.path.basename(full_path))[0].replace("-", " ").replace("_", " ")
 
-    # 按日期倒序排列
-    photos_data.sort(key=lambda x: x["date"], reverse=True)
+                photos.append({
+                    "src": large_url,
+                    "thumb": thumb_url,
+                    "width": width,
+                    "height": height,
+                    "title": title,
+                    "date": date_str,
+                    "year": year,
+                    "trip": trip_name
+                })
 
-    with open(OUTPUT_JSON, "w", encoding="utf-8") as f:
-        json.dump(photos_data, f, ensure_ascii=False, indent=2)
+    photos.sort(key=lambda x: x['date'], reverse=True)
 
-    print(f"\n🎉 全部完成！共处理 {len(photos_data)} 张照片。数据已更新至 {OUTPUT_JSON}")
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+        json.dump(photos, f, ensure_ascii=False, indent=2)
+
+    print(f"\n🎉 [云端模式] 增量同步完成！相册库共包含 {len(photos)} 张照片，已更新 {OUTPUT_FILE}。")
+
+def build_gallery():
+    if not os.path.exists(PHOTOS_DIR):
+        os.makedirs(PHOTOS_DIR)
+        print(f"📁 已创建 {PHOTOS_DIR} 目录，请放入照片文件夹后再重新运行此脚本。")
+        return
+
+    if is_r2_configured():
+        run_r2_mode()
+    else:
+        run_local_mode()
 
 if __name__ == "__main__":
-    process_and_upload()
+    build_gallery()
