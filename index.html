@@ -25,7 +25,7 @@
             cursor: pointer;
         }
 
-        /* 拍立得典型外观：上左右 8px 留白，底部 24px 经典留白相框 (适度收紧留白给两行文字腾出空间) */
+        /* 拍立得典型外观：上左右 8px 留白，底部 24px 经典留白相框 */
         .polaroid-frame {
             background-color: #ffffff;
             padding: 8px 8px 24px 8px;
@@ -156,18 +156,31 @@
 <body>
 
     <!-- 页头 HEADER -->
-    <header class="bg-white border-b border-slate-200/80 sticky top-0 z-30 shadow-sm/50">
-        <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-            <div>
-                <h1 class="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
-                    📸 d1ckie的旅行相册
-                </h1>
-                <p class="text-xs text-slate-500 mt-0.5">收集地图上的每一个世界</p>
+    <header class="bg-white/90 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-30 shadow-sm/50">
+        <div class="max-w-6xl mx-auto px-4 py-3 md:py-4 flex items-center justify-between min-h-[64px]">
+            <!-- 左侧主区：包含左上角大返回按钮与主标题 -->
+            <div class="flex items-center gap-3">
+                <!-- 👈 左上角大号返回按钮（进入行程详情时在最左侧醒目显示） -->
+                <button id="backBtn" class="hidden items-center gap-1.5 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-800 text-sm md:text-base font-bold px-3.5 py-2 rounded-2xl transition-all active:scale-95 shadow-sm border border-slate-200/60">
+                    <svg class="w-5 h-5 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                    <span>返回</span>
+                </button>
+
+                <!-- 网站标题组 -->
+                <div id="headerTitleGroup">
+                    <h1 class="text-lg md:text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
+                        📸 d1ckie的旅行相册
+                    </h1>
+                    <p class="text-[11px] md:text-xs text-slate-500 mt-0.5">收集地图上的每一个世界</p>
+                </div>
             </div>
-            <!-- 返回按钮（仅在进入特定行程详情时显示） -->
-            <button id="backBtn" class="hidden items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-3.5 py-2 rounded-full transition-all active:scale-95">
-                ← 返回行程列表
-            </button>
+
+            <!-- 右侧辅助徽章 -->
+            <div id="headerRightBadge">
+                <span id="tripCountBadge" class="text-xs bg-slate-100 text-slate-600 px-3 py-1.5 rounded-full font-semibold border border-slate-200/60">0 个行程</span>
+            </div>
         </div>
     </header>
 
@@ -177,7 +190,6 @@
         <section id="tripGridView" class="view-fade-enter">
             <div class="mb-5 flex items-center justify-between">
                 <span class="text-xs font-bold text-slate-400 tracking-wider uppercase">行程概览</span>
-                <span id="tripCountBadge" class="text-xs bg-slate-200/60 text-slate-600 px-2.5 py-1 rounded-full font-medium">0 个行程</span>
             </div>
             
             <!-- ⭐ 手机端 2 列，电脑端 3 列网格 -->
@@ -186,7 +198,7 @@
 
         <!-- 2. 单个行程照片详情视图 (Detail View) -->
         <section id="tripDetailView" class="hidden view-fade-enter">
-            <div class="mb-5 pb-3 border-b border-slate-200 flex items-center justify-between">
+            <div class="mb-5 pb-3 border-b border-slate-200/80 flex items-center justify-between">
                 <div>
                     <h2 id="currentTripTitle" class="text-lg md:text-xl font-bold text-slate-800 flex items-center gap-2"></h2>
                     <p id="currentTripSub" class="text-xs text-slate-400 mt-1"></p>
@@ -273,7 +285,7 @@
                 card.className = 'photo-stack-card group relative flex flex-col';
 
                 card.innerHTML = `
-                    <!-- 3D 拍立得照片叠框架（高宽比调整为 3:4，为两行标题提供充足纵向空间） -->
+                    <!-- 3D 拍立得照片叠框架（高宽比 3:4，为两行标题提供充足纵向空间） -->
                     <div class="relative w-full aspect-[3/4] mb-2">
                         <!-- 第 3 层 (最底部拍立得) -->
                         <div class="stack-layer-3 polaroid-frame absolute inset-0 opacity-70 overflow-hidden">
@@ -346,11 +358,12 @@
                 detailPhotoGrid.appendChild(item);
             });
 
-            // 切换视图与显示返回按钮
+            // 切换视图与显示左上角大返回按钮
             tripGridView.classList.add('hidden');
             tripDetailView.classList.remove('hidden');
+            
             backBtn.classList.remove('hidden');
-            backBtn.classList.add('flex');
+            backBtn.classList.add('inline-flex');
 
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
@@ -359,11 +372,12 @@
         backBtn.addEventListener('click', () => {
             tripDetailView.classList.add('hidden');
             tripGridView.classList.remove('hidden');
+            
             backBtn.classList.add('hidden');
-            backBtn.classList.remove('flex');
+            backBtn.classList.remove('inline-flex');
         });
 
-        // 5. 初始化 PhotoSwipe 灯箱弹窗与原图下载按钮
+        // 5. 初始化 PhotoSwipe 5 灯箱弹窗与原图下载按钮
         const lightbox = new PhotoSwipeLightbox({
             gallery: '#detailPhotoGrid',
             children: 'a',
