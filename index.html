@@ -25,7 +25,7 @@
             cursor: pointer;
         }
 
-        /* 拍立得典型外观：上左右 8px 留白，底部 24px 经典留白相框 */
+        /* 拍立得外观：上左右 8px 留白，底部 24px 经典留白相框 */
         .polaroid-frame {
             background-color: #ffffff;
             padding: 8px 8px 24px 8px;
@@ -101,6 +101,11 @@
             box-shadow: 0 2px 8px rgba(230, 57, 70, 0.4);
             border: none;
             cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .pswp__button--download-custom:hover {
+            background: #d62828 !important;
+            transform: scale(1.05);
         }
 
         /* 🎵 悬浮唱片音乐播放器样式 */
@@ -160,9 +165,9 @@
         <div class="max-w-6xl mx-auto px-4 py-3 md:py-4 flex items-center justify-between min-h-[64px]">
             <!-- 左侧主区：包含左上角大返回按钮与主标题 -->
             <div class="flex items-center gap-3">
-                <!-- 👈 左上角大号返回按钮（进入行程详情时在最左侧醒目显示） -->
-                <button id="backBtn" class="hidden items-center gap-1.5 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-800 text-sm md:text-base font-bold px-3.5 py-2 rounded-2xl transition-all active:scale-95 shadow-sm border border-slate-200/60">
-                    <svg class="w-5 h-5 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <!-- 👈 左上角大号返回按钮（符合原生 App 手势，醒目好按） -->
+                <button id="backBtn" class="hidden items-center gap-1.5 bg-slate-800 hover:bg-slate-900 active:bg-black text-white text-sm md:text-base font-bold px-4 py-2 rounded-2xl transition-all active:scale-95 shadow-md">
+                    <svg class="w-5 h-5 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
                     </svg>
                     <span>返回</span>
@@ -313,7 +318,7 @@
                                 </div>
                             </div>
 
-                            <!-- 拍立得底部白色留白区域 (行程标题与日期) -->
+                            <!-- 拍立得底部白色留白区域 (行程标题与日期，支持双行折行) -->
                             <div class="pt-2 px-0.5 flex flex-col justify-end">
                                 <h3 class="text-xs sm:text-sm font-bold text-slate-800 line-clamp-2 leading-snug group-hover:text-rose-500 transition-colors">
                                     📍 ${tripKey}
@@ -377,7 +382,45 @@
             backBtn.classList.remove('inline-flex');
         });
 
-        // 5. 初始化 PhotoSwipe 5 灯箱弹窗与原图下载按钮
+        // 5. Blob 二进制下载函数（完美兼容手机端直接下载到相册/本地）
+        async function downloadImageDirectly(url, btnEl) {
+            const originalText = btnEl.innerHTML;
+            btnEl.innerHTML = '⏳ 下载中...';
+            btnEl.style.pointerEvents = 'none';
+
+            try {
+                const response = await fetch(url, { mode: 'cors' });
+                if (!response.ok) throw new Error('网络请求失败');
+                const blob = await response.blob();
+                
+                // 提取文件扩展名与文件名
+                const fileExt = url.split('.').pop().split('?')[0] || 'webp';
+                const filename = `photo_${Date.now()}.${fileExt}`;
+
+                // 创建 Blob 临时链接触发浏览器保存
+                const blobUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(blobUrl);
+
+                btnEl.innerHTML = '✅ 已下载';
+                setTimeout(() => {
+                    btnEl.innerHTML = originalText;
+                    btnEl.style.pointerEvents = 'auto';
+                }, 2000);
+            } catch (err) {
+                console.warn('Direct Blob download failed, falling back to window.open:', err);
+                window.open(url, '_blank');
+                btnEl.innerHTML = originalText;
+                btnEl.style.pointerEvents = 'auto';
+            }
+        }
+
+        // 6. 初始化 PhotoSwipe 5 灯箱弹窗与原图下载按钮
         const lightbox = new PhotoSwipeLightbox({
             gallery: '#detailPhotoGrid',
             children: 'a',
@@ -396,8 +439,10 @@
                     el.onclick = (e) => {
                         e.preventDefault();
                         const currSlide = pswp.currSlide;
-                        const rawUrl = currSlide.data.element.dataset.rawUrl;
-                        if (rawUrl) window.open(rawUrl, '_blank');
+                        const rawUrl = currSlide.data.element.dataset.rawUrl || currSlide.data.src;
+                        if (rawUrl) {
+                            downloadImageDirectly(rawUrl, el);
+                        }
                     };
                 }
             });
@@ -405,7 +450,7 @@
 
         lightbox.init();
 
-        // 6. 🎵 智能背景音乐播放器控制
+        // 7. 🎵 智能背景音乐播放器控制
         const bgMusic = document.getElementById('bgMusic');
         const musicToggleBtn = document.getElementById('musicToggleBtn');
         const musicBtnIcon = document.getElementById('musicBtnIcon');
