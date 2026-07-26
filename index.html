@@ -108,6 +108,26 @@
             transform: scale(1.05);
         }
 
+        /* 💬 微信端专属长按保存图片弹窗 */
+        .wechat-save-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 99999;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            animation: fadeIn 0.25s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.96); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
         /* 🎵 悬浮唱片音乐播放器样式 */
         .music-player-widget {
             position: fixed;
@@ -382,8 +402,60 @@
             backBtn.classList.remove('inline-flex');
         });
 
+        // 💬 微信专属长按保存弹窗
+        function showWeChatSaveModal(imgUrl) {
+            const existingModal = document.getElementById('wechatModal');
+            if (existingModal) existingModal.remove();
+
+            const modal = document.createElement('div');
+            modal.id = 'wechatModal';
+            modal.className = 'wechat-save-modal';
+            modal.innerHTML = `
+                <div class="relative max-w-sm w-full bg-slate-900/90 border border-slate-700/60 rounded-3xl p-5 text-center text-white shadow-2xl flex flex-col items-center">
+                    <!-- 关闭按钮 -->
+                    <button id="closeWechatModal" class="absolute top-3 right-3 w-8 h-8 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center hover:bg-slate-700 text-sm font-bold">
+                        ✕
+                    </button>
+
+                    <div class="inline-flex items-center gap-1.5 bg-rose-500/20 text-rose-300 text-xs font-bold px-3 py-1 rounded-full mb-3 border border-rose-500/30">
+                        💡 微信保存提示
+                    </div>
+                    
+                    <p class="text-sm font-semibold mb-4 text-slate-200">
+                        请 <span class="text-rose-400 font-bold">长按下方图片</span> 选择“保存图片”
+                    </p>
+
+                    <!-- 高清原图容器 (供长按) -->
+                    <div class="relative max-h-[55vh] w-full rounded-xl overflow-hidden bg-black/50 border border-slate-700 flex items-center justify-center mb-4">
+                        <img src="${imgUrl}" class="max-h-[55vh] w-auto object-contain select-none" alt="原图" />
+                    </div>
+
+                    <button id="confirmCloseModal" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition">
+                        知道了 / 关闭
+                    </button>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            const closeModal = () => modal.remove();
+            document.getElementById('closeWechatModal').onclick = closeModal;
+            document.getElementById('confirmCloseModal').onclick = closeModal;
+            modal.onclick = (e) => {
+                if (e.target === modal) closeModal();
+            };
+        }
+
         // 5. Blob 二进制下载函数（完美兼容手机端直接下载到相册/本地）
         async function downloadImageDirectly(url, btnEl) {
+            const isWeChat = /MicroMessenger/i.test(navigator.userAgent);
+            
+            // 💡 微信环境下直接拦截，弹出长按保存指导弹窗
+            if (isWeChat) {
+                showWeChatSaveModal(url);
+                return;
+            }
+
             const originalText = btnEl.innerHTML;
             btnEl.innerHTML = '⏳ 下载中...';
             btnEl.style.pointerEvents = 'none';
@@ -413,10 +485,11 @@
                     btnEl.style.pointerEvents = 'auto';
                 }, 2000);
             } catch (err) {
-                console.warn('Direct Blob download failed, falling back to window.open:', err);
-                window.open(url, '_blank');
+                console.warn('Direct Blob download failed:', err);
                 btnEl.innerHTML = originalText;
                 btnEl.style.pointerEvents = 'auto';
+                // 异常情况下，若在移动端也展示长按保存弹窗，避免跳黑屏
+                showWeChatSaveModal(url);
             }
         }
 
