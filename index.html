@@ -214,7 +214,7 @@
         <!-- 1. 行程相片叠网格主视图 (Grid View) -->
         <section id="tripGridView" class="view-fade-enter">
             <div class="mb-5 flex items-center justify-between">
-                <span class="text-xs font-bold text-slate-400 tracking-wider uppercase">行程概览</span>
+                <span class="text-xs font-bold text-slate-400 tracking-wider uppercase">行程概览（按时间正序）</span>
             </div>
             
             <!-- ⭐ 手机端 2 列，电脑端 3 列网格 -->
@@ -282,9 +282,9 @@
                     tripGroups[groupKey].push(photo);
                 });
 
-                // 📅 智能自然倒序排列 (如 2026-07-10 排在 2026-07-09 前面)
+                // 📅 时间正序排列：较早时间的行程排在前面 (如 2024 排在 2026 前面)
                 const sortedKeys = Object.keys(tripGroups).sort((a, b) => {
-                    return b.localeCompare(a, 'zh-CN', { numeric: true, sensitivity: 'base' });
+                    return a.localeCompare(b, 'zh-CN', { numeric: true, sensitivity: 'base' });
                 });
 
                 tripCountBadge.textContent = `${sortedKeys.length} 个行程`;
@@ -488,7 +488,6 @@
                 console.warn('Direct Blob download failed:', err);
                 btnEl.innerHTML = originalText;
                 btnEl.style.pointerEvents = 'auto';
-                // 异常情况下，若在移动端也展示长按保存弹窗，避免跳黑屏
                 showWeChatSaveModal(url);
             }
         }
