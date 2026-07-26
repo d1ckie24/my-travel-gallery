@@ -19,33 +19,43 @@
             padding-bottom: 90px; /* 留出底部音乐播放器空间 */
         }
 
-        /* 📸 照片叠放（Photo Stack）核心 CSS 效果 */
+        /* 📸 拍立得（Polaroid）相框与叠放 CSS 效果 */
         .photo-stack-card {
             perspective: 1000px;
             cursor: pointer;
         }
 
-        /* 叠在底部的第 2 张照片 */
+        /* 拍立得典型外观：上左右 8px 留白，底部 36px 经典留白相框 */
+        .polaroid-frame {
+            background-color: #ffffff;
+            padding: 8px 8px 36px 8px;
+            box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.1), 0 4px 10px -2px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            border-radius: 6px;
+            transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* 叠在底部的第 2 张拍立得 */
         .stack-layer-2 {
-            transform: rotate(-6deg) scale(0.94) translateY(2px);
-            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transform: rotate(-6deg) scale(0.95) translateY(2px);
+            transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
-        /* 叠在底部的第 3 张照片 */
+        /* 叠在底部的第 3 张拍立得 */
         .stack-layer-3 {
-            transform: rotate(6deg) scale(0.88) translateY(4px);
-            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transform: rotate(6deg) scale(0.9) translateY(4px);
+            transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
-        /* 悬停/点击时后方照片向两边展开 */
+        /* 悬停/点击时后方拍立得向两边展开 */
         .photo-stack-card:hover .stack-layer-2,
         .photo-stack-card:active .stack-layer-2 {
-            transform: rotate(-11deg) scale(0.96) translateX(-6px) translateY(-2px);
+            transform: rotate(-11deg) scale(0.97) translateX(-8px) translateY(-2px);
         }
 
         .photo-stack-card:hover .stack-layer-3,
         .photo-stack-card:active .stack-layer-3 {
-            transform: rotate(11deg) scale(0.92) translateX(6px) translateY(-2px);
+            transform: rotate(11deg) scale(0.93) translateX(8px) translateY(-2px);
         }
 
         /* 视图切换平滑淡入动画 */
@@ -246,46 +256,53 @@
                 const photos = tripGroups[tripKey];
                 const count = photos.length;
 
-                // 取前 3 张用于做 3D 叠层
-                const cover1 = photos[0]?.url_thumb || photos[0]?.thumb || photos[0]?.src;
-                const cover2 = photos[1]?.url_thumb || photos[1]?.thumb || photos[1]?.src || cover1;
-                const cover3 = photos[2]?.url_thumb || photos[2]?.thumb || photos[2]?.src || cover1;
+                // ⭐ 优先加载高清大图 (url_large 或 src)，保证卡片封面无比清晰
+                const cover1 = photos[0]?.url_large || photos[0]?.src || photos[0]?.url_thumb || photos[0]?.thumb;
+                const cover2 = photos[1]?.url_large || photos[1]?.src || photos[1]?.url_thumb || photos[1]?.thumb || cover1;
+                const cover3 = photos[2]?.url_large || photos[2]?.src || photos[2]?.url_thumb || photos[2]?.thumb || cover1;
 
                 const card = document.createElement('div');
                 card.className = 'photo-stack-card group relative flex flex-col';
 
                 card.innerHTML = `
-                    <!-- 3D 照片叠框架 -->
-                    <div class="relative w-full aspect-square mb-3">
-                        <!-- 第 3 层 (最底部) -->
-                        <div class="stack-layer-3 absolute inset-0 rounded-2xl overflow-hidden bg-slate-200 border-2 border-white shadow-sm">
-                            <img src="${cover3}" loading="lazy" class="w-full h-full object-cover opacity-70" />
-                        </div>
-                        
-                        <!-- 第 2 层 (中间层) -->
-                        <div class="stack-layer-2 absolute inset-0 rounded-2xl overflow-hidden bg-slate-200 border-2 border-white shadow-sm">
-                            <img src="${cover2}" loading="lazy" class="w-full h-full object-cover opacity-85" />
-                        </div>
-
-                        <!-- 第 1 层 (顶层封面) -->
-                        <div class="relative z-10 w-full h-full rounded-2xl overflow-hidden bg-slate-200 border-2 border-white shadow-md group-hover:shadow-xl transition-shadow">
-                            <img src="${cover1}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                            
-                            <!-- 照片张数 Badge -->
-                            <div class="absolute top-2.5 right-2.5 bg-black/60 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-sm">
-                                ${count} 张
+                    <!-- 3D 拍立得照片叠框架 -->
+                    <div class="relative w-full aspect-[4/5] mb-2">
+                        <!-- 第 3 层 (最底部拍立得) -->
+                        <div class="stack-layer-3 polaroid-frame absolute inset-0 opacity-70 overflow-hidden">
+                            <div class="w-full h-full bg-slate-100 overflow-hidden rounded-sm">
+                                <img src="${cover3}" loading="lazy" class="w-full h-full object-cover" />
                             </div>
                         </div>
-                    </div>
+                        
+                        <!-- 第 2 层 (中间层拍立得) -->
+                        <div class="stack-layer-2 polaroid-frame absolute inset-0 opacity-85 overflow-hidden">
+                            <div class="w-full h-full bg-slate-100 overflow-hidden rounded-sm">
+                                <img src="${cover2}" loading="lazy" class="w-full h-full object-cover" />
+                            </div>
+                        </div>
 
-                    <!-- 底部文字描述 -->
-                    <div class="px-1">
-                        <h3 class="text-sm font-bold text-slate-800 truncate group-hover:text-rose-500 transition-colors">
-                            📍 ${tripKey}
-                        </h3>
-                        <p class="text-[11px] text-slate-400 mt-0.5">
-                            ${photos[0]?.date ? `🗓️ ${photos[0].date}` : '精彩瞬间'}
-                        </p>
+                        <!-- 第 1 层 (顶层主拍立得) -->
+                        <div class="relative z-10 w-full h-full polaroid-frame flex flex-col justify-between group-hover:shadow-2xl transition-shadow">
+                            <!-- 拍立得照片主体 (正方形) -->
+                            <div class="relative w-full aspect-square overflow-hidden rounded-sm bg-slate-100">
+                                <img src="${cover1}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                
+                                <!-- 照片张数 Badge -->
+                                <div class="absolute top-2 right-2 bg-black/60 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-sm z-10">
+                                    ${count} 张
+                                </div>
+                            </div>
+
+                            <!-- 拍立得底部白色留白区域 (行程标题与日期) -->
+                            <div class="pt-2 px-0.5 flex flex-col justify-end">
+                                <h3 class="text-xs sm:text-sm font-bold text-slate-800 truncate group-hover:text-rose-500 transition-colors">
+                                    📍 ${tripKey}
+                                </h3>
+                                <p class="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 truncate">
+                                    ${photos[0]?.date ? `🗓️ ${photos[0].date}` : '精彩瞬间'}
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 `;
 
