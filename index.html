@@ -3,123 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>d1ckie的旅行相冊</title>
+    <title>d1ckie的旅行相册</title>
+
+    <!-- Tailwind CSS 极速样式库 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
     <!-- PhotoSwipe 5 核心样式 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe.css">
+
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
-            background: #f4f6f8; 
-            color: #2c3e50;
+            background: #f8fafc; 
+            color: #1e293b;
             padding-bottom: 90px; /* 留出底部音乐播放器空间 */
         }
 
-        header { 
-            text-align: center; 
-            padding: 32px 16px 20px; 
-            background: #ffffff;
-            border-bottom: 1px solid #eef2f5;
-            margin-bottom: 20px;
-        }
-        header h1 { font-size: 1.6rem; font-weight: 700; color: #1a1a1a; }
-        header p { color: #7f8c8d; font-size: 0.9rem; margin-top: 6px; }
-
-        .main-container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 0 12px;
-        }
-
-        /* 📅 日期/行程分组折叠卡片 */
-        .group-card {
-            background: #ffffff;
-            border-radius: 14px;
-            margin-bottom: 16px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-            overflow: hidden;
-            border: 1px solid #eaeaea;
-        }
-
-        /* 折叠头部栏 */
-        .group-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 16px 20px;
+        /* 📸 照片叠放（Photo Stack）核心 CSS 效果 */
+        .photo-stack-card {
+            perspective: 1000px;
             cursor: pointer;
-            user-select: none;
-            background: #ffffff;
-            transition: background 0.2s;
-        }
-        .group-header:active { background: #f8f9fa; }
-
-        .group-title {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 1.05rem;
-            font-weight: 600;
-        }
-        .group-badge {
-            font-size: 0.8rem;
-            color: #666666;
-            background: #f0f2f5;
-            padding: 3px 10px;
-            border-radius: 12px;
-            font-weight: normal;
         }
 
-        .arrow-icon {
-            font-size: 0.8rem;
-            color: #999999;
-            transition: transform 0.3s ease;
+        /* 叠在底部的第 2 张照片 */
+        .stack-layer-2 {
+            transform: rotate(-6deg) scale(0.94) translateY(2px);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
-        /* 折叠状态 */
-        .group-card.collapsed .group-body { display: none; }
-        .group-card.collapsed .arrow-icon { transform: rotate(-90deg); }
-
-        .group-body {
-            padding: 12px;
-            border-top: 1px solid #f5f5f5;
-            background: #fafafa;
+        /* 叠在底部的第 3 张照片 */
+        .stack-layer-3 {
+            transform: rotate(6deg) scale(0.88) translateY(4px);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
-        /* 🖼️ 照片网格布局：电脑端多列，手机端强制双列 */
-        .photo-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-            gap: 12px;
+        /* 悬停/点击时后方照片向两边展开 */
+        .photo-stack-card:hover .stack-layer-2,
+        .photo-stack-card:active .stack-layer-2 {
+            transform: rotate(-11deg) scale(0.96) translateX(-6px) translateY(-2px);
         }
 
-        /* 📱 手机端适配：强制设置为 2 列网格 */
-        @media (max-width: 768px) {
-            .photo-grid {
-                grid-template-columns: repeat(2, 1fr) !important;
-                gap: 8px; /* 紧凑间距，充分利用屏幕 */
+        .photo-stack-card:hover .stack-layer-3,
+        .photo-stack-card:active .stack-layer-3 {
+            transform: rotate(11deg) scale(0.92) translateX(6px) translateY(-2px);
+        }
+
+        /* 视图切换平滑淡入动画 */
+        .view-fade-enter {
+            animation: fadeInScale 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.97) translateY(8px);
             }
-            .group-header { padding: 14px 16px; }
-            .group-body { padding: 8px; }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
         }
-
-        .photo-card {
-            position: relative;
-            aspect-ratio: 1 / 1; /* 统一正方形网格 */
-            border-radius: 8px;
-            overflow: hidden;
-            background: #e2e8f0;
-            cursor: pointer;
-            display: block;
-        }
-        .photo-card img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-            transition: transform 0.2s ease;
-        }
-        .photo-card:active img { transform: scale(0.96); }
 
         /* 🔴 PhotoSwipe 放大预览页中的“下载原图”高亮按钮 */
         .pswp__button--download-custom {
@@ -142,33 +85,29 @@
             cursor: pointer;
         }
 
-        /* 🎵 卢广仲《几分之几》悬浮音乐播放器 */
+        /* 🎵 悬浮唱片音乐播放器样式 */
         .music-player-widget {
             position: fixed;
             bottom: 24px;
             right: 24px;
             z-index: 9999;
-            background: rgba(255, 255, 255, 0.88);
+            background: rgba(255, 255, 255, 0.9);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.8);
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
             border-radius: 40px;
             padding: 8px 16px 8px 8px;
             display: flex;
             align-items: center;
             gap: 12px;
-            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
             user-select: none;
-        }
-        .music-player-widget:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 16px 36px rgba(0, 0, 0, 0.16);
+            transition: all 0.3s ease;
         }
         .disc-wrapper {
             position: relative;
-            width: 42px;
-            height: 42px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             background: linear-gradient(135deg, #2c3e50, #000000);
             display: flex;
@@ -186,7 +125,6 @@
             background: #ffffff;
             border-radius: 50%;
             position: absolute;
-            box-shadow: inset 0 0 2px rgba(0,0,0,0.5);
         }
         .disc-wrapper.playing {
             animation: disc-rotate 8s linear infinite;
@@ -195,247 +133,282 @@
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
         }
-        .music-info {
-            display: flex;
-            flex-direction: column;
-            line-height: 1.2;
-            max-width: 120px;
-        }
-        .music-title {
-            font-size: 0.85rem;
-            font-weight: 700;
-            color: #1a1a1a;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .music-artist {
-            font-size: 0.72rem;
-            color: #7f8c8d;
-            margin-top: 2px;
-        }
-        .music-control-btn {
-            background: #e63946;
-            color: white;
-            border: none;
-            width: 34px;
-            height: 34px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-size: 0.85rem;
-            transition: all 0.2s ease;
-            box-shadow: 0 4px 10px rgba(230, 57, 70, 0.3);
-            margin-left: 4px;
-        }
-        .music-control-btn:hover {
-            background: #d62828;
-            transform: scale(1.08);
-        }
-        .music-control-btn:active {
-            transform: scale(0.95);
-        }
-        @media (max-width: 480px) {
-            .music-player-widget {
-                bottom: 16px;
-                right: 16px;
-                padding: 6px 12px 6px 6px;
-            }
-            .disc-wrapper { width: 36px; height: 36px; }
-            .music-title { font-size: 0.8rem; }
-            .music-control-btn { width: 30px; height: 30px; font-size: 0.75rem; }
-        }
     </style>
 </head>
 <body>
 
-    <header>
-        <h1>📸 d1ckie的旅行相冊</h1>
-        <p>點擊行程分類可展開/折疊，點擊照片查看原圖，點擊下載原圖可下載照片</p>
+    <!-- 页头 HEADER -->
+    <header class="bg-white border-b border-slate-200/80 sticky top-0 z-30 shadow-sm/50">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div>
+                <h1 class="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
+                    📸 d1ckie的旅行相册
+                </h1>
+                <p class="text-xs text-slate-500 mt-0.5">收集地图上的每一个世界</p>
+            </div>
+            <!-- 返回按钮（仅在进入特定行程详情时显示） -->
+            <button id="backBtn" class="hidden items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-3.5 py-2 rounded-full transition-all active:scale-95">
+                ← 返回行程列表
+            </button>
+        </div>
     </header>
 
-    <div class="main-container" id="mainContainer"></div>
+    <!-- 主体容器 -->
+    <main class="max-w-6xl mx-auto px-4 py-6">
+        <!-- 1. 行程相片叠网格主视图 (Grid View) -->
+        <section id="tripGridView" class="view-fade-enter">
+            <div class="mb-5 flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-400 tracking-wider uppercase">行程概览</span>
+                <span id="tripCountBadge" class="text-xs bg-slate-200/60 text-slate-600 px-2.5 py-1 rounded-full font-medium">0 个行程</span>
+            </div>
+            
+            <!-- ⭐ 手机端 2 列，电脑端 3 列网格 -->
+            <div id="tripGrid" class="grid grid-cols-2 md:grid-cols-3 gap-5 md:gap-7"></div>
+        </section>
 
-    <!-- 🎵 卢广仲《几分之几》悬浮背景音乐播放器 -->
+        <!-- 2. 单个行程照片详情视图 (Detail View) -->
+        <section id="tripDetailView" class="hidden view-fade-enter">
+            <div class="mb-5 pb-3 border-b border-slate-200 flex items-center justify-between">
+                <div>
+                    <h2 id="currentTripTitle" class="text-lg md:text-xl font-bold text-slate-800 flex items-center gap-2"></h2>
+                    <p id="currentTripSub" class="text-xs text-slate-400 mt-1"></p>
+                </div>
+            </div>
+
+            <!-- 详情页照片网格 (手机 2 列，电脑 4 列) -->
+            <div id="detailPhotoGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-4 pswp-gallery"></div>
+        </section>
+    </main>
+
+    <!-- 🎵 卢广仲《几分之几》悬浮音乐播放器 -->
     <div class="music-player-widget" id="musicWidget">
         <audio id="bgMusic" loop preload="auto">
-            <!-- 优先读取同目录下的 music.mp3 -->
             <source src="music.mp3" type="audio/mpeg">
         </audio>
         <div class="disc-wrapper" id="discWrapper" title="点击播放/暂停">
-            <span style="color: #f1c40f; font-size: 18px; z-index: 1;">🎵</span>
+            <span style="color: #f1c40f; font-size: 16px; z-index: 1;">🎵</span>
         </div>
-        <div class="music-info">
-            <span class="music-title">幾分之幾</span>
-            <span class="music-artist">盧廣仲</span>
+        <div class="flex flex-col text-left leading-tight pr-1">
+            <span class="text-xs font-bold text-slate-800">几分之几</span>
+            <span class="text-[10px] text-slate-500 mt-0.5">卢广仲</span>
         </div>
-        <button class="music-control-btn" id="musicToggleBtn" title="播放/暂停背景音乐">
+        <button id="musicToggleBtn" class="w-8 h-8 rounded-full bg-rose-500 text-white flex items-center justify-center text-xs shadow-md hover:bg-rose-600 transition active:scale-95 ml-1">
             <span id="musicBtnIcon">▶</span>
         </button>
     </div>
 
-    <!-- PhotoSwipe 5 JS 模块 -->
+    <!-- PhotoSwipe 5 脚本模块 -->
     <script type="module">
         import PhotoSwipeLightbox from 'https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe-lightbox.esm.js';
         import PhotoSwipe from 'https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe.esm.js';
 
-        // 1. 获取 photos.json 并渲染相册网格
+        let allPhotoData = [];
+        let tripGroups = {};
+
+        const tripGridView = document.getElementById('tripGridView');
+        const tripDetailView = document.getElementById('tripDetailView');
+        const tripGrid = document.getElementById('tripGrid');
+        const detailPhotoGrid = document.getElementById('detailPhotoGrid');
+        const backBtn = document.getElementById('backBtn');
+        const currentTripTitle = document.getElementById('currentTripTitle');
+        const currentTripSub = document.getElementById('currentTripSub');
+        const tripCountBadge = document.getElementById('tripCountBadge');
+
+        // 1. 初始化拉取数据
         fetch('photos.json')
             .then(res => res.json())
             .then(photos => {
-                const container = document.getElementById('mainContainer');
-                
-                // 优先按 trip (行程分类) 分组，若无则按 date 分组
-                const groups = {};
+                allPhotoData = photos;
+
+                // 优先按 trip 分组
                 photos.forEach(photo => {
                     const groupKey = photo.trip || photo.date || '随手抓拍';
-                    if (!groups[groupKey]) groups[groupKey] = [];
-                    groups[groupKey].push(photo);
+                    if (!tripGroups[groupKey]) tripGroups[groupKey] = [];
+                    tripGroups[groupKey].push(photo);
                 });
 
-                // 📅 强化版的纯文本/数字混合倒序排列（直接对分组名称进行倒叙比对）
-                const sortedGroupKeys = Object.keys(groups).sort((a, b) => {
-                    // 使用 localeCompare 倒序排列：将最新的日期 (如 2026-07-10) 排在前面
+                // 📅 智能自然倒序排列 (如 2026-07-10 排在 2026-07-09 前面)
+                const sortedKeys = Object.keys(tripGroups).sort((a, b) => {
                     return b.localeCompare(a, 'zh-CN', { numeric: true, sensitivity: 'base' });
                 });
 
-                let isFirstGroup = true;
+                tripCountBadge.textContent = `${sortedKeys.length} 个行程`;
 
-                // 渲染每个分组卡片
-                sortedGroupKeys.forEach(groupKey => {
-                    const groupPhotos = groups[groupKey];
-
-                    const card = document.createElement('div');
-                    // 第一组默认展开，后续组默认收起
-                    card.className = `group-card ${isFirstGroup ? '' : 'collapsed'}`;
-                    isFirstGroup = false;
-
-                    card.innerHTML = `
-                        <div class="group-header">
-                            <div class="group-title">
-                                📍 <span>${groupKey}</span>
-                                <span class="group-badge">${groupPhotos.length} 张照片</span>
-                            </div>
-                            <span class="arrow-icon">▼</span>
-                        </div>
-                        <div class="group-body">
-                            <div class="photo-grid pswp-gallery" id="gallery-${encodeURIComponent(groupKey)}"></div>
-                        </div>
-                    `;
-
-                    // 点击 Header 切换展开/折叠
-                    const header = card.querySelector('.group-header');
-                    header.addEventListener('click', () => {
-                        card.classList.toggle('collapsed');
-                    });
-
-                    // 填入网格图片
-                    const grid = card.querySelector('.photo-grid');
-                    groupPhotos.forEach(photo => {
-                        const item = document.createElement('a');
-                        item.className = 'photo-card';
-                        item.href = photo.url_large || photo.src; // 高清图预览
-                        item.dataset.pswpWidth = photo.width || 1920;
-                        item.dataset.pswpHeight = photo.height || 1080;
-                        item.dataset.rawUrl = photo.url_raw || photo.src; // 超清原图下载链接
-                        item.target = '_blank';
-
-                        // 优先读取轻量缩略图 photo.url_thumb
-                        const thumbSrc = photo.url_thumb || photo.thumb || photo.src;
-                        item.innerHTML = `<img src="${thumbSrc}" loading="lazy" alt="${photo.title || 'photo'}" />`;
-                        grid.appendChild(item);
-                    });
-
-                    container.appendChild(card);
-                });
-
-                // 2. 初始化 PhotoSwipe 灯箱弹窗与下载按钮
-                const lightbox = new PhotoSwipeLightbox({
-                    gallery: '.pswp-gallery',
-                    children: 'a',
-                    pswpModule: PhotoSwipe
-                });
-
-                // 注册“下载原图”按钮
-                lightbox.on('uiRegister', function() {
-                    lightbox.pswp.ui.registerElement({
-                        name: 'download-button',
-                        order: 8,
-                        isButton: true,
-                        tagName: 'button',
-                        html: '⬇️ 下載原圖',
-                        onInit: (el, pswp) => {
-                            el.classList.add('pswp__button--download-custom');
-                            el.onclick = (e) => {
-                                e.preventDefault();
-                                const currSlide = pswp.currSlide;
-                                const rawUrl = currSlide.data.element.dataset.rawUrl;
-                                if (rawUrl) {
-                                    window.open(rawUrl, '_blank');
-                                }
-                            };
-                        }
-                    });
-                });
-
-                lightbox.init();
-
-                // 3. 🎵 智能背景音乐控制（兼顾自动播放与浏览器策略拦截）
-                const bgMusic = document.getElementById('bgMusic');
-                const musicToggleBtn = document.getElementById('musicToggleBtn');
-                const musicBtnIcon = document.getElementById('musicBtnIcon');
-                const discWrapper = document.getElementById('discWrapper');
-                let isPlaying = false;
-
-                function playMusic() {
-                    bgMusic.play().then(() => {
-                        musicBtnIcon.textContent = '❚❚';
-                        discWrapper.classList.add('playing');
-                        isPlaying = true;
-                    }).catch(err => {
-                        console.log('直接自动播放被拦截，等待用户第一次点击页面激活...');
-                        isPlaying = false;
-                    });
-                }
-
-                function pauseMusic() {
-                    bgMusic.pause();
-                    musicBtnIcon.textContent = '▶';
-                    discWrapper.classList.remove('playing');
-                    isPlaying = false;
-                }
-
-                function toggleMusic(e) {
-                    if (e) e.stopPropagation();
-                    if (isPlaying) {
-                        pauseMusic();
-                    } else {
-                        playMusic();
-                    }
-                }
-
-                // ① 打开页面时尝试直接播放
-                playMusic();
-
-                // ② 若直接播放被限制，监听全页面的第一次点击/触摸，触发播放
-                const handleFirstInteraction = () => {
-                    if (!isPlaying) {
-                        playMusic();
-                    }
-                    // 触发一次后自动移除监听器，不影响后续正常操作
-                    document.removeEventListener('click', handleFirstInteraction);
-                    document.removeEventListener('touchstart', handleFirstInteraction);
-                };
-
-                document.addEventListener('click', handleFirstInteraction, { once: true });
-                document.addEventListener('touchstart', handleFirstInteraction, { once: true });
-
-                // 按钮手动切换控制
-                musicToggleBtn.addEventListener('click', toggleMusic);
-                discWrapper.addEventListener('click', toggleMusic);
+                // 渲染主页相片叠网格
+                renderTripStacks(sortedKeys);
             });
+
+        // 2. 渲染相片叠小格子
+        function renderTripStacks(sortedKeys) {
+            tripGrid.innerHTML = '';
+
+            sortedKeys.forEach(tripKey => {
+                const photos = tripGroups[tripKey];
+                const count = photos.length;
+
+                // 取前 3 张用于做 3D 叠层
+                const cover1 = photos[0]?.url_thumb || photos[0]?.thumb || photos[0]?.src;
+                const cover2 = photos[1]?.url_thumb || photos[1]?.thumb || photos[1]?.src || cover1;
+                const cover3 = photos[2]?.url_thumb || photos[2]?.thumb || photos[2]?.src || cover1;
+
+                const card = document.createElement('div');
+                card.className = 'photo-stack-card group relative flex flex-col';
+
+                card.innerHTML = `
+                    <!-- 3D 照片叠框架 -->
+                    <div class="relative w-full aspect-square mb-3">
+                        <!-- 第 3 层 (最底部) -->
+                        <div class="stack-layer-3 absolute inset-0 rounded-2xl overflow-hidden bg-slate-200 border-2 border-white shadow-sm">
+                            <img src="${cover3}" loading="lazy" class="w-full h-full object-cover opacity-70" />
+                        </div>
+                        
+                        <!-- 第 2 层 (中间层) -->
+                        <div class="stack-layer-2 absolute inset-0 rounded-2xl overflow-hidden bg-slate-200 border-2 border-white shadow-sm">
+                            <img src="${cover2}" loading="lazy" class="w-full h-full object-cover opacity-85" />
+                        </div>
+
+                        <!-- 第 1 层 (顶层封面) -->
+                        <div class="relative z-10 w-full h-full rounded-2xl overflow-hidden bg-slate-200 border-2 border-white shadow-md group-hover:shadow-xl transition-shadow">
+                            <img src="${cover1}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                            
+                            <!-- 照片张数 Badge -->
+                            <div class="absolute top-2.5 right-2.5 bg-black/60 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-sm">
+                                ${count} 张
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 底部文字描述 -->
+                    <div class="px-1">
+                        <h3 class="text-sm font-bold text-slate-800 truncate group-hover:text-rose-500 transition-colors">
+                            📍 ${tripKey}
+                        </h3>
+                        <p class="text-[11px] text-slate-400 mt-0.5">
+                            ${photos[0]?.date ? `🗓️ ${photos[0].date}` : '精彩瞬间'}
+                        </p>
+                    </div>
+                `;
+
+                // 点击进入详情
+                card.addEventListener('click', () => {
+                    openTripDetail(tripKey, photos);
+                });
+
+                tripGrid.appendChild(card);
+            });
+        }
+
+        // 3. 打开行程详情视图
+        function openTripDetail(tripKey, photos) {
+            currentTripTitle.innerHTML = `📍 ${tripKey}`;
+            currentTripSub.textContent = `共 ${photos.length} 张照片 · 点击可查看高清原图`;
+
+            detailPhotoGrid.innerHTML = '';
+
+            photos.forEach(photo => {
+                const item = document.createElement('a');
+                item.className = 'relative aspect-square rounded-xl overflow-hidden bg-slate-200 shadow-sm hover:shadow-md transition-all active:scale-95 block group';
+                item.href = photo.url_large || photo.src;
+                item.dataset.pswpWidth = photo.width || 1920;
+                item.dataset.pswpHeight = photo.height || 1080;
+                item.dataset.rawUrl = photo.url_raw || photo.src;
+                item.target = '_blank';
+
+                const thumbSrc = photo.url_thumb || photo.thumb || photo.src;
+                item.innerHTML = `
+                    <img src="${thumbSrc}" loading="lazy" alt="${photo.title || 'photo'}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                `;
+                detailPhotoGrid.appendChild(item);
+            });
+
+            // 切换视图与显示返回按钮
+            tripGridView.classList.add('hidden');
+            tripDetailView.classList.remove('hidden');
+            backBtn.classList.remove('hidden');
+            backBtn.classList.add('flex');
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // 4. 返回主视图
+        backBtn.addEventListener('click', () => {
+            tripDetailView.classList.add('hidden');
+            tripGridView.classList.remove('hidden');
+            backBtn.classList.add('hidden');
+            backBtn.classList.remove('flex');
+        });
+
+        // 5. 初始化 PhotoSwipe 灯箱弹窗与原图下载按钮
+        const lightbox = new PhotoSwipeLightbox({
+            gallery: '#detailPhotoGrid',
+            children: 'a',
+            pswpModule: PhotoSwipe
+        });
+
+        lightbox.on('uiRegister', function() {
+            lightbox.pswp.ui.registerElement({
+                name: 'download-button',
+                order: 8,
+                isButton: true,
+                tagName: 'button',
+                html: '⬇️ 下载原图',
+                onInit: (el, pswp) => {
+                    el.classList.add('pswp__button--download-custom');
+                    el.onclick = (e) => {
+                        e.preventDefault();
+                        const currSlide = pswp.currSlide;
+                        const rawUrl = currSlide.data.element.dataset.rawUrl;
+                        if (rawUrl) window.open(rawUrl, '_blank');
+                    };
+                }
+            });
+        });
+
+        lightbox.init();
+
+        // 6. 🎵 智能背景音乐播放器控制
+        const bgMusic = document.getElementById('bgMusic');
+        const musicToggleBtn = document.getElementById('musicToggleBtn');
+        const musicBtnIcon = document.getElementById('musicBtnIcon');
+        const discWrapper = document.getElementById('discWrapper');
+        let isPlaying = false;
+
+        function playMusic() {
+            bgMusic.play().then(() => {
+                musicBtnIcon.textContent = '❚❚';
+                discWrapper.classList.add('playing');
+                isPlaying = true;
+            }).catch(() => {
+                isPlaying = false;
+            });
+        }
+
+        function pauseMusic() {
+            bgMusic.pause();
+            musicBtnIcon.textContent = '▶';
+            discWrapper.classList.remove('playing');
+            isPlaying = false;
+        }
+
+        function toggleMusic(e) {
+            if (e) e.stopPropagation();
+            if (isPlaying) pauseMusic();
+            else playMusic();
+        }
+
+        playMusic();
+
+        // 浏览器自动播放限制防护：用户首次点击页面任意位置唤醒音乐
+        const handleFirstInteraction = () => {
+            if (!isPlaying) playMusic();
+            document.removeEventListener('click', handleFirstInteraction);
+            document.removeEventListener('touchstart', handleFirstInteraction);
+        };
+        document.addEventListener('click', handleFirstInteraction, { once: true });
+        document.addEventListener('touchstart', handleFirstInteraction, { once: true });
+
+        musicToggleBtn.addEventListener('click', toggleMusic);
+        discWrapper.addEventListener('click', toggleMusic);
     </script>
 </body>
 </html>
